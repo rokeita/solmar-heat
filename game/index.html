@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOLMAR HEAT — Port Solmar</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1020; font-family: 'Segoe UI', Arial, sans-serif; color: #fff; }
+  #app { position: fixed; inset: 0; }
+  canvas#gl { display: block; width: 100%; height: 100%; }
+  #hud { position: absolute; inset: 0; pointer-events: none; }
+  .panel { background: rgba(8, 12, 24, 0.55); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; backdrop-filter: blur(2px); }
+  #topLeft { position: absolute; top: 12px; left: 12px; padding: 8px 12px; min-width: 190px; }
+  #cash { font-size: 28px; font-weight: 800; color: #7dff8a; text-shadow: 0 2px 4px rgba(0,0,0,0.6); }
+  #playerName { font-size: 11px; letter-spacing: 2px; color: #ffd75e; margin-top: 2px; }
+  .bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.15); margin-top: 6px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 5px; }
+  #healthFill { width: 100%; background: linear-gradient(90deg, #ff5a4e, #ff8a5c); }
+  #carFill { width: 100%; background: linear-gradient(90deg, #3fa9ff, #7cc4ff); }
+  .barLabel { font-size: 9px; letter-spacing: 1px; color: rgba(255,255,255,0.75); margin-top: 4px; }
+  #stars { position: absolute; top: 12px; right: 14px; font-size: 30px; letter-spacing: 4px; text-shadow: 0 2px 6px rgba(0,0,0,0.7); }
+  #stars .star { color: rgba(255,255,255,0.25); }
+  #stars .star.on { color: #ff3b30; }
+  #missionBanner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); text-align: center; max-width: 60%; }
+  #missionTitle { font-size: 20px; font-weight: 800; color: #ffd75e; text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+  #objective { margin-top: 4px; display: inline-block; padding: 5px 12px; font-size: 14px; background: rgba(8,12,24,0.6); border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); }
+  #minimapWrap { position: absolute; left: 12px; bottom: 12px; width: 180px; height: 180px; border-radius: 50%; overflow: hidden; border: 3px solid rgba(255,255,255,0.35); box-shadow: 0 4px 16px rgba(0,0,0,0.5); background: #0d1a12; }
+  #minimap { width: 100%; height: 100%; display: block; }
+  #speedBox { position: absolute; right: 14px; bottom: 12px; text-align: right; text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+  #speed { font-size: 44px; font-weight: 800; line-height: 1; }
+  #speedUnit { font-size: 14px; color: rgba(255,255,255,0.8); }
+  #gear { font-size: 16px; color: #ffd75e; font-weight: 700; }
+  #feed { position: absolute; left: 12px; bottom: 202px; width: 340px; font-size: 13px; line-height: 1.5; }
+  #feed div { background: rgba(8,12,24,0.55); border-left: 3px solid #ffd75e; padding: 5px 9px; margin-top: 5px; border-radius: 4px; }
+  #hint { position: absolute; right: 14px; bottom: 86px; font-size: 12px; color: rgba(255,255,255,0.85); text-align: right; text-shadow: 0 1px 3px rgba(0,0,0,0.8); line-height: 1.6; }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(10,16,34,0.55) 0%, rgba(5,8,18,0.85) 100%); pointer-events: auto; text-align: center; }
+  .screen h1 { font-size: 64px; font-weight: 900; letter-spacing: 4px; color: #ffd75e; text-shadow: 0 4px 0 #b3541e, 0 8px 24px rgba(0,0,0,0.8); }
+  .screen h2 { font-size: 20px; letter-spacing: 6px; color: #7cc4ff; margin-top: 4px; }
+  .screen p { margin-top: 16px; font-size: 15px; color: rgba(255,255,255,0.9); max-width: 560px; line-height: 1.6; }
+  .btn { pointer-events: auto; cursor: pointer; margin-top: 18px; padding: 12px 34px; font-size: 17px; font-weight: 800; letter-spacing: 1px; color: #111; background: #ffd75e; border: none; border-radius: 30px; box-shadow: 0 4px 0 #b3541e; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.secondary { background: #7cc4ff; box-shadow: 0 4px 0 #2b6cb0; color: #06263f; }
+  .hidden { display: none !important; }
+  #bustedText { font-size: 18px; margin-top: 12px; color: #fff; }
+  #muteBtn { position: absolute; top: 64px; right: 14px; pointer-events: auto; cursor: pointer; background: rgba(8,12,24,0.55); border: 1px solid rgba(255,255,255,0.25); color: #fff; border-radius: 6px; padding: 5px 10px; font-size: 12px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="app"><canvas id="gl"></canvas></div>
+<div id="hud">
+  <div id="topLeft" class="panel">
+    <div id="cash">$120</div>
+    <div id="playerName">DANNY COLE</div>
+    <div class="bar"><div id="healthFill"></div></div>
+    <div class="barLabel">HEALTH</div>
+    <div class="bar"><div id="carFill"></div></div>
+    <div class="barLabel">CAR</div>
+  </div>
+  <div id="stars"><span class="star">&#9733;</span><span class="star">&#9733;</span><span class="star">&#9733;</span><span class="star">&#9733;</span><span class="star">&#9733;</span></div>
+  <button id="muteBtn">MUTE (M)</button>
+  <div id="missionBanner"><div id="missionTitle"></div><div id="objective"></div></div>
+  <div id="minimapWrap"><canvas id="minimap" width="180" height="180"></canvas></div>
+  <div id="feed"></div>
+  <div id="hint">WASD move &middot; E enter car &middot; F punch<br>drag mouse to look &middot; wheel zoom &middot; P pause &middot; M mute</div>
+  <div id="speedBox"><span id="speed">0</span> <span id="speedUnit">MPH</span><div id="gear">D</div></div>
+  <div id="menu" class="screen">
+    <h1>SOLMAR HEAT</h1>
+    <h2>PORT SOLMAR</h2>
+    <p>Steal cars, outrun the Port Solmar PD, and run jobs for Mama Rosa's crew. Three jobs. One city. No brakes on ambition.</p>
+    <button class="btn" id="btnNew">NEW GAME</button>
+    <button class="btn secondary hidden" id="btnContinue">CONTINUE</button>
+    <p style="font-size:12px;opacity:0.75">WASD move / drive &middot; Shift run &middot; Space jump / handbrake &middot; E enter car &middot; F punch &middot; P pause</p>
+  </div>
+  <div id="pauseScreen" class="screen hidden">
+    <h1 style="font-size:44px">PAUSED</h1>
+    <p>Take a breath, Danny. The city waits.</p>
+    <button class="btn" id="btnResume">RESUME</button>
+    <button class="btn secondary" id="btnRestart">RESTART</button>
+  </div>
+  <div id="bustedScreen" class="screen hidden">
+    <h1 style="font-size:44px;color:#ff5a4e;text-shadow:0 4px 0 #7a1300, 0 8px 24px rgba(0,0,0,0.8)">BUSTED</h1>
+    <div id="bustedText"></div>
+    <button class="btn" id="btnBustedOk">BACK ON THE STREETS</button>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
